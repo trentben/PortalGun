@@ -61,9 +61,8 @@ const int msDelay = 500;
 #define frontRightPin        3
 #define frontCenterPin       5
 #define frontLeftPin         6
-#define maximumBright        255
-#define mediumBright         127
-int topBulbBrightness = 255;
+int maxBright = 254;
+int mediumBright = 50;
 
 // Set up what we need to sleep/wake the Trinket
 // Define the pins you'll use for interrupts - CHANGE THESE to match the input pins
@@ -73,6 +72,8 @@ int topBulbBrightness = 255;
 //Let us know if our Trinket woke up from sleep
 volatile bool justWokeUp;
 
+
+char *messages[] = {"GET SWIFTY", "WUBBA LUBBA DUB DUB", "PICKLE RICK", "EXISTENCE IS PAIN"};
 
 void timerIsr() {
   encoder->service();
@@ -88,16 +89,19 @@ void setup() {
   pinMode(frontCenterPin, OUTPUT);
   
   
-  digitalWrite(frontRightPin, HIGH);
-  digitalWrite(frontLeftPin, HIGH);
-  digitalWrite(frontCenterPin, HIGH);
+  setFrontLights(mediumBright);
   digitalWrite(topBulbPin, HIGH);
+  
   
   
   encoderSetup();
   alpha4.begin(0x70);  // pass in the address for the LED display
   
   justWokeUp = false;
+
+  randomSeed(analogRead(A3));
+
+  Serial.begin(9600);
   
   //uncomment this to make the display run through a test at startup
   //displayTest();
@@ -105,11 +109,10 @@ void setup() {
 
 void loop() {
   if (justWokeUp) {
-    digitalWrite(frontRightPin, HIGH);
-    digitalWrite(frontLeftPin, HIGH);
-    digitalWrite(frontCenterPin, HIGH);
+    updateDimension();
     digitalWrite(topBulbPin, HIGH);
-    justWokeUp = false;
+    fadeDisplayLights(0, 16, 300);
+    fadeFrontLights(0, mediumBright, 500);
   }  
 
   
@@ -118,26 +121,28 @@ void loop() {
     case ClickEncoder::Held:
       // Holding the button will put your trinket to sleep.
       // The trinket will wake on the next button press
-      alpha4.clear();
-      alpha4.writeDigitAscii(0, 'R');
-      alpha4.writeDigitAscii(1, 'I');
-      alpha4.writeDigitAscii(2, 'C');
-      alpha4.writeDigitAscii(3, 'K');
-      digitalWrite(frontRightPin, LOW);
-      digitalWrite(frontLeftPin, LOW);
-      digitalWrite(frontCenterPin, LOW);
+      setDisplay("RICK");
+      fadeFrontLights(mediumBright, 0, 500);
       digitalWrite(topBulbPin, LOW);
-      alpha4.writeDisplay();
-      delay(5000);
-      alpha4.clear();
-      alpha4.writeDisplay();
-      delay(5000);
+      fadeDisplayLights(15, 0, 300);
+      setDisplay("");
+      delay(500);
       justWokeUp = true;
       goToSleep();
-    break;
+    return;
     case ClickEncoder::Clicked:
-      // When the encoder wheel is single clicked
-   
+      Serial.print("Click");
+
+      if (!justWokeUp) {
+        fadeFrontLights(mediumBright, maxBright, 100);
+        fadeFrontLights(maxBright, mediumBright, 500);
+
+        String msg = getDimensionMessage();
+        if (!msg.equals("")) {
+          scrollText(msg);
+        }
+      }
+      justWokeUp = false;
     break;
     case ClickEncoder::DoubleClicked:
       //If you double click the button, it sets the dimension to C137
@@ -150,6 +155,32 @@ void loop() {
       updateDimension();
     break;
   }
+  
+}
+
+
+String getDimensionMessage() {
+  if (value == 137) {
+    return "GET SWIFTY";
+    
+  } else if (value == 000){
+    int rand = random(sizeof(messages)/2);
+    return messages[rand];
+    
+  } else if (dimensionLetter == 'A' && (value/10) == 55) {
+    //Any dimension A55X
+    return "HOLE";
+   
+  } else if (dimensionLetter == 'C' && value == 420) {
+    return "GET LIT";
+    
+  } else if (value == "444") {
+    return "KALAXIAN CRYSTALS";
+    
+  } else if (dimensionLetter == 'X') {
+    return "BLIPS AND CHITZ";
+  }
+  return "";
 }
 
 
@@ -164,6 +195,90 @@ void encoderSetup(){
     value = 137;
 }
 
+
+void fadeFrontLights(int from, int to, int duration) {
+    int delta = to - from;
+    int increment = from < to ? 1 : -1;
+    int wait = duration/abs(delta);
+
+    if (wait == 0) {
+      wait = 1;
+      increment = delta/duration;
+    }
+    
+    int i = from;
+    bool done = false;
+    while (!done) {
+      setFrontLights(i);
+      delay(wait);
+
+      i += increment;
+      done = delta >= 0 ? i > to : i < to;
+    }
+
+    setFrontLights(to);
+    
+}
+
+void fadeDisplayLights(int from, int to, int duration) {
+    int delta = to - from;
+    int increment = from < to ? 1 : -1;
+    int wait = duration/abs(delta);
+
+    if (wait == 0) {
+      wait = 1;
+      increment = delta/duration;
+    }
+    
+    int i = from;
+    bool done = false;
+    while (!done) {
+      alpha4.setBrightness(i);
+      delay(wait);
+
+      i += increment;
+      done = delta >= 0 ? i > to : i < to;
+    }
+
+    alpha4.setBrightness(to);
+}
+
+void setFrontLights(int brightness) {
+      analogWrite(frontRightPin, brightness);
+      analogWrite(frontCenterPin, brightness);
+      analogWrite(frontLeftPin, brightness);
+}
+
+void setDisplay(String text) {
+      alpha4.clear();
+
+      for (int i=0; i < text.length() && i < 4; i++) {
+        alpha4.writeDigitAscii(i, text.charAt(i));
+      }
+      alpha4.writeDisplay();
+}
+
+void scrollText(String msg) {
+
+  for (int i = -4; i <= (int) msg.length(); i++) {
+    alpha4.clear();
+    for (int n=0; n < 4; n++) {
+      alpha4.writeDigitAscii(n, safeCharAt(msg, i + n));
+    }
+    alpha4.writeDisplay();
+    
+    delay(200);
+  }
+}
+
+char safeCharAt(String text, int idx) {
+  
+  if (idx < 0 || idx >= text.length() ) {
+    return ' ';
+  } else {
+    return text.charAt(idx);
+  }
+}
 
 void updateDimension(){
   #ifdef reverseEncoderWheel
