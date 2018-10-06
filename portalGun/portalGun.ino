@@ -179,7 +179,7 @@ String getDimensionMessage() {
   } else if (dimensionLetter == 'C' && value == 420) {
     return "GET LIT";
     
-  } else if (value == "444") {
+  } else if (value == 444) {
     return "KALAXIAN CRYSTALS";
     
   } else if (dimensionLetter == 'R') {
