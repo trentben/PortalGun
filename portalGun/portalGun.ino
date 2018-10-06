@@ -72,7 +72,6 @@ int mediumBright = 50;
 //Let us know if our Trinket woke up from sleep
 volatile bool justWokeUp;
 
-
 char *messages[] = {"GET SWIFTY", "WUBBA LUBBA DUB DUB", "PICKLE RICK", "EXISTENCE IS PAIN"};
 
 void timerIsr() {
@@ -100,8 +99,6 @@ void setup() {
   justWokeUp = false;
 
   randomSeed(analogRead(A3));
-
-  Serial.begin(9600);
   
   //uncomment this to make the display run through a test at startup
   //displayTest();
@@ -131,8 +128,6 @@ void loop() {
       goToSleep();
     return;
     case ClickEncoder::Clicked:
-      Serial.print("Click");
-
       if (!justWokeUp) {
         fadeFrontLights(mediumBright, maxBright, 100);
         fadeFrontLights(maxBright, mediumBright, 500);
@@ -155,15 +150,25 @@ void loop() {
       updateDimension();
     break;
   }
+}
+
+void encoderSetup(){
+    // set up encoder
+    encoder = new ClickEncoder(encoderPinA, encoderPinB, encoderButtonPin, stepsPerNotch);
+    encoder->setAccelerationEnabled(true);
   
+    Timer1.initialize(1000);
+    Timer1.attachInterrupt(timerIsr); 
+    last = -1;
+    value = 137;
 }
 
 
 String getDimensionMessage() {
-  if (value == 137) {
+  if (value == 132) {
     return "GET SWIFTY";
     
-  } else if (value == 000){
+  } else if (value == 777){
     int rand = random(sizeof(messages)/2);
     return messages[rand];
     
@@ -177,23 +182,18 @@ String getDimensionMessage() {
   } else if (value == "444") {
     return "KALAXIAN CRYSTALS";
     
-  } else if (dimensionLetter == 'X') {
+  } else if (dimensionLetter == 'R') {
     return "BLIPS AND CHITZ";
+  } else if (dimensionLetter == 'C' && value == 345) {
+    return "BURNING MAN 2019";
+  } else if (dimensionLetter == 'A' && value == 421) {
+    return "ART OUTSIDE";
+  } else if (dimensionLetter == 'F' && value == 010) {
+    return "BURNING FLIPSIDE";
   }
   return "";
 }
 
-
-void encoderSetup(){
-    // set up encoder
-    encoder = new ClickEncoder(encoderPinA, encoderPinB, encoderButtonPin, stepsPerNotch);
-    encoder->setAccelerationEnabled(true);
-  
-    Timer1.initialize(1000);
-    Timer1.attachInterrupt(timerIsr); 
-    last = -1;
-    value = 137;
-}
 
 
 void fadeFrontLights(int from, int to, int duration) {
@@ -266,7 +266,8 @@ void scrollText(String msg) {
       alpha4.writeDigitAscii(n, safeCharAt(msg, i + n));
     }
     alpha4.writeDisplay();
-    
+
+    // Chnage the delay to adjust scroll speed
     delay(200);
   }
 }
